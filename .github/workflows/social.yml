@@ -1,0 +1,47 @@
+name: SNSから候補サイトを集める
+
+on:
+  schedule:
+    - cron: "17 17 * * *"   # 毎日 2:17（日本時間）。候補の抽出（3:17）の前
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Bluesky を読む時間（分）"
+        default: "20"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: commit-data
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements-batch.txt
+
+      - name: 収集
+        working-directory: scripts
+        run: python collect_social.py --minutes "${{ github.event.inputs.minutes || '20' }}"
+
+      - name: 結果をコミット
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data/social
+          if git diff --cached --quiet; then
+            echo "変更なし"
+          else
+            git commit -m "SNSの候補サイトを更新 $(date -u +%F)"
+            git pull --rebase
+            git push
+          fi

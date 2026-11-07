@@ -40,9 +40,10 @@ def now() -> str:
 
 
 def load_candidates() -> dict[str, str]:
-    """全CSVから {host: sample_url} を作る。"""
+    """Common Crawl と SNS の候補CSVから {host: sample_url} を作る。"""
     cands = {}
-    for path in sorted(DATA.glob("candidates/*/part-*.csv")):
+    paths = sorted(DATA.glob("candidates/*/part-*.csv")) + sorted(DATA.glob("social/*.csv"))
+    for path in paths:
         with path.open(encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 if row.get("sample_url"):
@@ -70,6 +71,9 @@ def fetch_page(session, url):
         if is_noindex(v) and (":" not in v or UA_NAME in v.lower()):
             return "noindex"
     soup = BeautifulSoup(content, "lxml")
+    for m in soup.find_all("meta", attrs={"name": re.compile("^rating$", re.I)}):
+        if re.search(r"adult|mature|RTA-5042", m.get("content", ""), re.I):
+            return "noindex"  # 成人向けと自己申告しているページは登録しない
     for m in soup.find_all("meta", attrs={"name": re.compile("^(robots|" + UA_NAME + ")$", re.I)}):
         if is_noindex(m.get("content", "")):
             return "noindex"

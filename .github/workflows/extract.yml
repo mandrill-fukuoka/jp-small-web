@@ -16,7 +16,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: extract
+  group: commit-data
   cancel-in-progress: false
 
 jobs:
@@ -44,5 +44,6 @@ jobs:
             echo "変更なし"
           else
             git commit -m "候補サイトを更新 $(date -u +%F)"
+            git pull --rebase
             git push
           fi
