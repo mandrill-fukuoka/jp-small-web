@@ -1,0 +1,30 @@
+# 大手サイト・大型プラットフォーム（登録ドメイン単位で除外）
+# 1行に1ドメイン。# で始まる行はコメント
+yahoo.co.jp
+google.com
+google.co.jp
+youtube.com
+wikipedia.org
+amazon.co.jp
+rakuten.co.jp
+nikkei.com
+asahi.com
+yomiuri.co.jp
+mainichi.jp
+nhk.or.jp
+livedoor.jp
+livedoor.com
+goo.ne.jp
+ameblo.jp
+note.com
+x.com
+twitter.com
+instagram.com
+facebook.com
+tiktok.com
+pixiv.net
+mercari.com
+tabelog.com
+hotpepper.jp
+kakaku.com
+cookpad.com

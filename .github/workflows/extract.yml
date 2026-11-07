@@ -1,0 +1,45 @@
+name: 候補サイトの抽出
+
+on:
+  schedule:
+    - cron: "17 18 * * *"   # 毎日 3:17（日本時間）
+  workflow_dispatch:
+    inputs:
+      files:
+        description: "1回で処理する索引ファイル数"
+        default: "20"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: extract
+  cancel-in-progress: false
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: 抽出
+        run: python scripts/extract_candidates.py --files "${{ github.event.inputs.files || '20' }}"
+
+      - name: 結果をコミット
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data
+          if git diff --cached --quiet; then
+            echo "変更なし"
+          else
+            git commit -m "候補サイトを更新 $(date -u +%F)"
+            git push
+          fi
