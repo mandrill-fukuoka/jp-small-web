@@ -8,6 +8,9 @@ on:
       files:
         description: "1回で処理する索引ファイル数"
         default: "20"
+      langs:
+        description: "対象言語（jpn / jpn,eng,kor / all）"
+        default: "jpn"
 
 permissions:
   contents: write
@@ -30,7 +33,7 @@ jobs:
       - run: pip install -r requirements.txt
 
       - name: 抽出
-        run: python scripts/extract_candidates.py --files "${{ github.event.inputs.files || '20' }}"
+        run: python scripts/extract_candidates.py --files "${{ github.event.inputs.files || '20' }}" --langs "${{ github.event.inputs.langs || 'jpn' }}"
 
       - name: 結果をコミット
         run: |

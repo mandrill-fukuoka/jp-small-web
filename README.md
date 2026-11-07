@@ -19,9 +19,22 @@ Googleで見つけにくい「日本語の小さなサイト」を集める、�
 
 手動で動かすには、GitHub の **Actions → 候補サイトの抽出 → Run workflow**。
 
+## 日本語以外も対象にする
+
+`--langs` で言語を指定できます（ISO 639-3 の3文字コード）。
+
+```bash
+python scripts/extract_candidates.py --langs jpn,eng,kor   # 日本語・英語・韓国語
+python scripts/extract_candidates.py --langs all           # 全言語
+```
+
+日本語以外の結果は `data/candidates-<言語>/` と `data/state-<言語>.json` に別に保存されます。
+
+**全言語は量に注意**：索引1ファイルあたり約3.6万件（日本語の約90倍）、1クロールで約1,000万件・1GB前後になり、GitHubリポジトリに置くには大きすぎます。数言語に絞るのがおすすめです。除外リストも日本向けなので、他言語では各国の大手サイトを足してください。
+
 ## 出力
 
-- `data/candidates/<クロールID>/part-XXXXX.csv` … 列：`host, registered_domain, pages, sample_url`
+- `data/candidates/<クロールID>/part-XXXXX.csv` … 列：`host, registered_domain, pages, sample_url, language`
 - `data/state.json` … 処理の進み具合
 
 ## 手元で動かす
