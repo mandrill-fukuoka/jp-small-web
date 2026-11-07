@@ -1,0 +1,45 @@
+name: 本文の取得と索引の更新
+
+on:
+  schedule:
+    - cron: "17 19 * * *"   # 毎日 4:17（日本時間）。候補の抽出（3:17）の後
+  workflow_dispatch:
+    inputs:
+      hosts:
+        description: "1回で取得するサイト数"
+        default: "3000"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: crawl
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements-batch.txt
+
+      - name: 前回の索引を取得
+        run: gh release download index -p index.db -D data || echo "初回のため新しく作ります"
+
+      - name: 本文を取得して索引に追加
+        working-directory: scripts
+        run: python crawl.py --hosts "${{ github.event.inputs.hosts || '3000' }}"
+
+      - name: 索引をリリースに保存
+        run: |
+          gh release view index >/dev/null 2>&1 || \
+            gh release create index --title "検索索引" --notes "毎日自動で更新される検索索引（SQLite）"
+          gh release upload index data/index.db --clobber

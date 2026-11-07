@@ -30,7 +30,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-batch.txt
 
       - name: 抽出
         run: python scripts/extract_candidates.py --files "${{ github.event.inputs.files || '20' }}" --langs "${{ github.event.inputs.langs || 'jpn' }}"

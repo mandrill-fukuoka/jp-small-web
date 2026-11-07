@@ -40,12 +40,33 @@ python scripts/extract_candidates.py --langs all           # 全言語
 ## 手元で動かす
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-batch.txt
 python scripts/extract_candidates.py --files 2
 ```
 
-## 次の段階
+## 本文の取得と索引（第二段階）
 
-1. 候補サイトの robots.txt を確認し、許可されたページだけ本文を取得する
-2. SQLite FTS5（trigram）で全文検索の索引を作る
-3. Streamlit で検索画面を公開する
+`.github/workflows/crawl.yml` が毎日 4:17（日本時間）に動き、まだ取得していない候補サイトを3,000件ずつ取得して索引に加えます。
+
+- robots.txt を守り、noindex のページは登録しない
+- 1サイトにつきトップページと候補ページの最大2ページだけ取得
+- robots.txt で **Googlebot だけを拒否している** サイトには印を付ける（検索画面に「Google拒否」と表示）
+- 索引（`index.db`、SQLite FTS5）はリポジトリではなく、GitHub のリリース「index」に保存
+
+日本語は2文字ずつ重ねて区切る bi-gram 方式で索引を作るので、形態素解析なしで「福岡」「花火」のような2文字の語も検索できます。
+
+## 検索画面
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Streamlit Community Cloud に、このリポジトリの `app.py` を指定すれば無料で公開できます。索引はリリースから自動で読み込みます。
+
+## ファイル
+
+- `scripts/extract_candidates.py` … 候補の抽出（第一段階）
+- `scripts/crawl.py` … 本文の取得と索引への追加
+- `scripts/textindex.py` … 索引の作成・検索の共通処理
+- `app.py` … 検索画面
