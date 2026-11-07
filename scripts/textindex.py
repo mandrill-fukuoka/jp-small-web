@@ -26,12 +26,29 @@ CREATE TABLE IF NOT EXISTS hosts (
     host TEXT PRIMARY KEY,
     status TEXT,            -- ok / robots_denied / noindex / error
     googlebot_blocked INTEGER,  -- robots.txt で Googlebot だけ拒否しているか
-    checked_at TEXT
+    checked_at TEXT,
+    deepened INTEGER        -- ページ追加をどのページ上限で済ませたか
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS pages_fts USING fts5(
     title, body, content='', tokenize='unicode61'
 );
 """
+
+
+KANA = re.compile(r"[\u3041-\u309f\u30a1-\u30fa]")
+
+
+def is_japanese(text: str) -> bool:
+    """ひらがな・カタカナが一定量あるか（漢字だけの中国語などを除く）。"""
+    kana = len(KANA.findall(text))
+    cjk = len(re.findall(rf"[{CJK}]", text))
+    return kana >= 20 and kana >= cjk * 0.15
+
+
+def remove_page(con, page_id, title, body) -> None:
+    con.execute("INSERT INTO pages_fts(pages_fts, rowid, title, body) VALUES('delete', ?, ?, ?)",
+                (page_id, bigrams(title), bigrams(body)))
+    con.execute("DELETE FROM pages WHERE id = ?", (page_id,))
 
 
 def bigrams(text: str) -> str:
@@ -51,6 +68,9 @@ def bigrams(text: str) -> str:
 def open_db(path: Path) -> sqlite3.Connection:
     con = sqlite3.connect(path)
     con.executescript(SCHEMA)
+    cols = {r[1] for r in con.execute("PRAGMA table_info(hosts)")}
+    if "deepened" not in cols:  # 古い索引への列追加
+        con.execute("ALTER TABLE hosts ADD COLUMN deepened INTEGER")
     return con
 
 
