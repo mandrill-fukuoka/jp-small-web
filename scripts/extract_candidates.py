@@ -13,6 +13,7 @@ import argparse
 import csv
 import gzip
 import json
+import time
 import urllib.request
 from pathlib import Path
 
@@ -26,14 +27,27 @@ BASE = "https://data.commoncrawl.org/"
 FIELDS = ["host", "registered_domain", "pages", "sample_url", "language"]
 
 
+def fetch(url: str, tries: int = 5) -> bytes:
+    """混雑で接続が切れることがあるので、待ちながら再試行する。"""
+    for attempt in range(tries):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as r:
+                return r.read()
+        except Exception as e:
+            if attempt == tries - 1:
+                raise
+            wait = 30 * (attempt + 1)
+            print(f"{url} の取得に失敗（{type(e).__name__}）。{wait}秒後に再試行します")
+            time.sleep(wait)
+
+
 def latest_crawl() -> str:
-    with urllib.request.urlopen("https://index.commoncrawl.org/collinfo.json") as r:
-        return json.load(r)[0]["id"]
+    return json.loads(fetch("https://index.commoncrawl.org/collinfo.json"))[0]["id"]
 
 
 def index_files(crawl: str) -> list[str]:
-    with urllib.request.urlopen(f"{BASE}crawl-data/{crawl}/cc-index-table.paths.gz") as r:
-        lines = gzip.decompress(r.read()).decode().split()
+    raw = fetch(f"{BASE}crawl-data/{crawl}/cc-index-table.paths.gz")
+    lines = gzip.decompress(raw).decode().split()
     return [BASE + p for p in lines if "subset=warc" in p]
 
 
@@ -84,12 +98,16 @@ def main() -> None:
     langs = [l.strip() for l in args.langs.split(",") if l.strip()]
     tag = "-".join(langs)
     state_file = STATE if tag == "jpn" else DATA / f"state-{tag}.json"
-    crawl = args.crawl or latest_crawl()
+    try:
+        crawl = args.crawl or latest_crawl()
+        files = index_files(crawl)
+    except Exception as e:
+        print(f"Common Crawl に接続できないため、今回はスキップします（{type(e).__name__}）")
+        return
     state = json.loads(state_file.read_text()) if state_file.exists() else {}
     if state.get("crawl") != crawl:
         state = {"crawl": crawl, "offset": 0, "hosts": 0}
 
-    files = index_files(crawl)
     offset = state["offset"]
     if offset >= len(files):
         print(f"{crawl} は処理済みです。次のクロール公開を待ちます。")
@@ -97,6 +115,9 @@ def main() -> None:
 
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
+    # Common Crawl は混雑時に接続を切ることがあるので、通信の再試行を多めにする
+    con.execute("SET http_retries = 8; SET http_retry_wait_ms = 2000; "
+                "SET http_retry_backoff = 2; SET http_timeout = 120000;")
     con.execute("CREATE TABLE ex(d VARCHAR)")
     excludes = load_excludes()
     if excludes:
@@ -106,7 +127,19 @@ def main() -> None:
     outdir.mkdir(parents=True, exist_ok=True)
     end = min(offset + args.files, len(files))
     for i in range(offset, end):
-        rows = extract(con, files[i], args.max_pages, langs)
+        rows = None
+        for attempt in range(4):
+            try:
+                rows = extract(con, files[i], args.max_pages, langs)
+                break
+            except duckdb.Error as e:
+                wait = 60 * (attempt + 1)
+                print(f"[{i + 1}] 取得に失敗（{str(e)[:80]}）。{wait}秒後に再試行します")
+                time.sleep(wait)
+        if rows is None:
+            # ここまでの進み具合は保存済み。次回の実行でこのファイルから再開する
+            print(f"[{i + 1}] 何度試しても取得できないため、今回はここで終了します")
+            break
         with (outdir / f"part-{i:05d}.csv").open("w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             w.writerow(FIELDS)
