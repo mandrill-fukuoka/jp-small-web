@@ -1,0 +1,4 @@
+host,registered_domain,pages,sample_url,language
+hyper.ksat.no,ksat.no,1,https://hyper.ksat.no/ja/,jpn
+ipttest.hi.no,hi.no,2,https://ipttest.hi.no/?request_locale=ja,jpn
+nisemo.no,nisemo.no,1,https://nisemo.no/,jpn
